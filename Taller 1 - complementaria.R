@@ -1,4 +1,3 @@
-
 .initial_time <- Sys.time() # Cronometrar corrida
 set.seed(123) # Fijar semilla
 
@@ -9,9 +8,9 @@ pacman::p_load(readxl, dplyr, stats, forecast)
 
 bonds <-
   read_excel(
-    path = file.path('Datos taller 1.xlsx'),
+    path = file.path("Datos taller 1.xlsx"),
     sheet = "Datos semanales"
-  ) %>% as.data.frame() 
+  ) %>% as.data.frame()
 
 rownames(bonds) <- bonds[, 1]
 # Eliminar la primera columna del dataframe
@@ -25,10 +24,10 @@ last_curve <- tail(bonds, 1)
 get_flows <- function(last_curve, bond) {
   semesters <- max(1, 2 * (colnames(last_curve)[bond] %>% as.numeric()))
   rate <- last_curve[bond]
-  cupon_semesters <- rep(rate * 100 * 182.5 / 360, semesters) %>% unlist
+  cupon_semesters <- rep(rate * 100 * 182.5 / 360, semesters) %>% unlist()
   names(cupon_semesters) <- seq(from = 1, to = length(cupon_semesters)) / 2
   cupon_semesters[length(cupon_semesters)] <- tail(cupon_semesters, 1) + 100
-  if (colnames(last_curve)[bond] %>% as.numeric() == 0.25){
+  if (colnames(last_curve)[bond] %>% as.numeric() == 0.25) {
     names(cupon_semesters) <- 0.25
     cupon_semesters <- rate * 100 * 91.25 / 360 + 100
   }
@@ -37,7 +36,7 @@ get_flows <- function(last_curve, bond) {
 
 flows <- sapply(c(1:8), function(x) get_flows(last_curve, x))
 names(flows) <- paste("Bono de", colnames(bonds), "años")
-flows 
+flows
 #' Hasta ahora no hemos hecho nada, solo representar en un objeto bonito (flows)
 #' los flujos (y las periodicidades) de los 8 bonos del tesoro
 
@@ -46,7 +45,7 @@ flows
 # Crear matriz
 n_alphas <- 7
 alphas_names <- paste("Alpha ", c(1:n_alphas))
-alphas_iniciales <- runif(n = 6, min = 0.01, max= 0.1)
+alphas_iniciales <- runif(n = 6, min = 0.01, max = 0.1)
 Desde <- c(0, .25, 1, 2, 3, 5, 7)
 Hasta <- c(tail(Desde, length(Desde) - 1), 10)
 
@@ -60,27 +59,27 @@ get_df <- function(matriz, t) {
   if (t < 0 || t > max(matriz[, "Hasta"])) {
     stop("El valor de x debe estar dentro del rango de la matriz.")
   }
-  
+
   # Inicializar la suma de la integral
   integral <- 0
-  
+
   # Iterar sobre los intervalos
   for (i in 1:nrow(matriz)) {
     # Obtener los valores de alpha y los intervalos
     alpha <- matriz[i, 1]
     desde <- matriz[i, 2]
     hasta <- matriz[i, 3]
-    
+
     # Si x está dentro del intervalo actual, sumar la parte proporcional y salir del bucle
     if (t <= hasta) {
       integral <- integral + alpha * (t - desde)
       break
     }
-    
+
     # Si el intervalo completo está antes de x, sumar toda el área del rectángulo
     integral <- integral + alpha * (hasta - desde)
   }
-  
+
   df <- exp(-integral)
   df
 }
@@ -90,19 +89,20 @@ datos_de_prueba <- seq(from = 0, to = 10, length.out = 100)
 plot(datos_de_prueba, sapply(datos_de_prueba, function(x) get_df(matriz, x)))
 
 # Valores presentes
-get_pv_error <- function(flujo, matriz){
+get_pv_error <- function(flujo, matriz) {
   periodos <- names(flujo) %>% as.numeric()
   factors <- sapply(periodos, function(x) get_df(matriz, x))
   present_value <- sum(factors * flujo)
   error <- (100 - present_value)^2
   error
-} 
+}
 
 # Crear función objetivo
-funcion_objetivo <- function(alphas, flows){
+funcion_objetivo <- function(alphas, flows) {
   matriz <- cbind(alphas, Desde, Hasta)
   objetivo <- lapply(flows, function(x) get_pv_error(x, matriz)) %>%
-    unlist() %>% sum()
+    unlist() %>%
+    sum()
   objetivo
 }
 
@@ -124,9 +124,10 @@ alphas_optimos_7_feb <- alphas_elegidos$par
 # Punto 3 ----------------------------------------------------------
 
 encontrar_alphas <- function(row) {
-  curva_spot <- bonds[row,]
-  flows <- sapply(c(1:8), function(x)
-    get_flows(curva_spot, x))
+  curva_spot <- bonds[row, ]
+  flows <- sapply(c(1:8), function(x) {
+    get_flows(curva_spot, x)
+  })
   alphas_elegidos <- optim(
     par = rep(0.01, n_alphas),
     # Los valores iniciales de los parámetros
@@ -142,11 +143,13 @@ encontrar_alphas <- function(row) {
   alphas_elegidos$par
 }
 
-serie_alphas <- sapply(seq_len(nrow(bonds)), encontrar_alphas) %>% t() %>% diff()
+serie_alphas <- sapply(seq_len(nrow(bonds)), encontrar_alphas) %>%
+  t() %>%
+  diff()
 
 # Punto 4 ---------------------------------------------------------------------
 
-pca_result <- prcomp(serie_alphas, scale. = FALSE, center = FALSE)  
+pca_result <- prcomp(serie_alphas, scale. = FALSE, center = FALSE)
 
 # Punto 5 -----------------------------------------------------------------
 
@@ -184,39 +187,41 @@ rotation_matrix <- pca_result$rotation[, 1:n_componentes]
 for (i in 1:n_simulaciones) {
   # Combinar las simulaciones de todos los componentes en una matriz
   sim_matrix <- sapply(simulaciones, function(x) x[, i])
-  
+
   # Transformar de vuelta al espacio original usando la matriz de carga
   resultados_original_space <- rotation_matrix %*% t(sim_matrix)
-  
+
   # Agregar los resultados al array
-  resultados[,,i] <- t(resultados_original_space)
+  resultados[, , i] <- t(resultados_original_space)
 }
 
-resultados <- apply(resultados, c(2, 3), cumsum) 
+resultados <- apply(resultados, c(2, 3), cumsum)
 
-tasas_simuladas <- sweep(t(resultados[n_semanas, , ]),
-                         2,
-                         alphas_elegidos$par,
-                         '+') 
+tasas_simuladas <- sweep(
+  t(resultados[n_semanas, , ]),
+  2,
+  alphas_elegidos$par,
+  "+"
+)
 
 # Punto 2 -----------------------------------------------------------------
 
 # Función que valora
-nocional <- 35 
+nocional <- 35
 
-get_error_2 <- function(C, alphas){
+get_error_2 <- function(C, alphas) {
   flujos <- rep(nocional * C, 10)
-  flujos[10] <- flujos[10] + nocional 
+  flujos[10] <- flujos[10] + nocional
   names(flujos) <- c(seq(1:10))
-  
+
   matriz <- cbind(alphas, Desde, Hasta) %>% as.data.frame()
   periodos <- names(flujos) %>% as.numeric()
   factors <- sapply(periodos, function(x) get_df(matriz, x))
   present_value <- sum(factors * flujos)
-  
+
   error <- (present_value - nocional)^2
   return(error)
-} 
+}
 environment(get_error_2) <- environment()
 
 # Punto 2
@@ -234,33 +239,33 @@ get_error_2(C_optimo, alphas_elegidos$par) # Da 0, entonces quedó bien
 # Punto 7 -----------------------------------------------------------------
 # Crear los flujos
 flujos <- rep(nocional * C_optimo, 10)
-flujos[10] <- flujos[10] + nocional 
-names(flujos) <- c(seq(1:10)) - n_semanas/52 # OJO
+flujos[10] <- flujos[10] + nocional
+names(flujos) <- c(seq(1:10)) - n_semanas / 52 # OJO
 
-get_pv_1y <- function(C = C_optimo, alphas){
-  
+get_pv_1y <- function(C = C_optimo, alphas) {
   matriz <- cbind(alphas, Desde, Hasta) %>% as.data.frame()
   periodos <- names(flujos) %>% as.numeric()
   factors <- sapply(periodos, function(x) get_df(matriz, x))
   present_value <- sum(factors * flujos)
-  
-  present_value
-} 
 
-# Hoy 
-pv_1Y <- sapply(seq_len(n_simulaciones), function(i)
-  get_pv_1y(alphas = tasas_simuladas[i,])) # En millones
+  present_value
+}
+
+# Hoy
+pv_1Y <- sapply(seq_len(n_simulaciones), function(i) {
+  get_pv_1y(alphas = tasas_simuladas[i, ])
+}) # En millones
 pv_1Y <- ((pv_1Y - nocional) / nocional) * 100 # En porcentaje
 
 # Resultado final
 hist(pv_1Y,
-     col = "skyblue",         # Color of the bars
-     border = "white",        # Color of the border of the bars
-     xlim = c(min(pv_1Y), max(pv_1Y)), # X-axis limits
-     main = "Histograma VP", # Main title
-     xlab = "Valores",         # X-axis label
-     ylab = "Frecuencia",   # Orientation of axis labels: always parallel to the axis,
-     breaks = 100
+  col = "skyblue", # Color of the bars
+  border = "white", # Color of the border of the bars
+  xlim = c(min(pv_1Y), max(pv_1Y)), # X-axis limits
+  main = "Histograma VP", # Main title
+  xlab = "Valores", # X-axis label
+  ylab = "Frecuencia", # Orientation of axis labels: always parallel to the axis,
+  breaks = 100
 )
 
 Sys.time() - .initial_time # Reporta cuánto toma corriendo

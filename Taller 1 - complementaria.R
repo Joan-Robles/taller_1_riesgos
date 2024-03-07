@@ -1,3 +1,4 @@
+
 .initial_time <- Sys.time() # Cronometrar corrida
 set.seed(123) # Fijar semilla
 
@@ -262,7 +263,7 @@ hist(pv_1Y,
   col = "skyblue", # Color of the bars
   border = "white", # Color of the border of the bars
   xlim = c(min(pv_1Y), max(pv_1Y)), # X-axis limits
-  main = "Histograma VP", # Main title
+  main = "Histograma de cambios en el valor del bono (%)", # Main title
   xlab = "Valores", # X-axis label
   ylab = "Frecuencia", # Orientation of axis labels: always parallel to the axis,
   breaks = 100

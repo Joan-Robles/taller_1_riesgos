@@ -3,13 +3,13 @@
 set.seed(123) # Fijar semilla
 
 # Taller 1 ----------------------------------------------------------------
-pacman::p_load(readxl, dplyr, stats, forecast)
+pacman::p_load(readxl, dplyr, stats, forecast, parallel)
 
 # 1.a ---------------------------------------------------------------------
 
 bonds <-
   read_excel(
-    path = file.path("Datos taller 1.xlsx"),
+    path = file.path("taller_1_riesgos/Datos taller 1.xlsx"),
     sheet = "Datos semanales"
   ) %>% as.data.frame()
 
@@ -144,9 +144,23 @@ encontrar_alphas <- function(row) {
   alphas_elegidos$par
 }
 
-serie_alphas <- sapply(seq_len(nrow(bonds)), encontrar_alphas) %>%
+# Set up a cluster
+cl <- makeCluster(detectCores() - 1) # Reserve one core for system processes
+
+# Export the 'bonds' data frame and 'encontrar_alphas' function to the cluster
+clusterExport(cl, varlist = ls())
+
+# Load the necessary libraries on each node
+clusterEvalQ(cl, {
+  library(dplyr)
+})
+  
+serie_alphas <- parSapply(cl, seq_len(nrow(bonds)), encontrar_alphas) %>%
   t() %>%
   diff()
+
+# Stop the cluster
+stopCluster(cl)
 
 # Punto 4 ---------------------------------------------------------------------
 
